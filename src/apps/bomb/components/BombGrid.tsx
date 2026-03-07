@@ -69,9 +69,11 @@ export function BombGrid({ state, myIndex }: BombGridProps) {
   }, [state.bombs])
 
   const playerMap = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const p of state.players) {
-      if (p.alive) map.set(`${p.x},${p.y}`, p.index)
+    const map = new Map<string, { index: number; alive: boolean }>()
+    // Dead first, then alive — alive overwrites dead at same position
+    const sorted = [...state.players].sort((a, b) => Number(a.alive) - Number(b.alive))
+    for (const p of sorted) {
+      map.set(`${p.x},${p.y}`, { index: p.index, alive: p.alive })
     }
     return map
   }, [state.players])
@@ -114,9 +116,13 @@ export function BombGrid({ state, myIndex }: BombGridProps) {
           const dir = dartMap.get(key)!
           cells.push({ char: DART_CHARS[dir] ?? ">>", fg: DART_FG, bg: DART_BG })
         } else if (playerMap.has(key)) {
-          const pIdx = playerMap.get(key)!
-          const isMe = pIdx === myIndex
-          cells.push({ char: isMe ? "🟦" : "██", fg: getColor(pIdx, myIndex), bg: PLAYER_BG })
+          const { index: pIdx, alive } = playerMap.get(key)!
+          if (!alive) {
+            cells.push({ char: "✗✗", fg: "#555", bg: PLAYER_BG })
+          } else {
+            const isMe = pIdx === myIndex
+            cells.push({ char: isMe ? "🟦" : "██", fg: getColor(pIdx, myIndex), bg: PLAYER_BG })
+          }
         } else if (bombMap.has(key)) {
           const { timer, owner } = bombMap.get(key)!
           const blink = state.tickCount % 4 < 2

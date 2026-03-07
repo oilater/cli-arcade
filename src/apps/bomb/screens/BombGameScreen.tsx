@@ -21,15 +21,11 @@ export function BombGameScreen({ config, state, onStateChange, onGameOver, solo 
   const renderer = useRenderer()
   const stateRef = useRef(state)
   stateRef.current = state
-  const inputQueue = useRef<InputAction[]>([])
 
   useEffect(() => {
     const interval = setInterval(() => {
       let next = stateRef.current
       if (next.gameOver) return
-
-      // Clear input queue (already applied immediately in enqueue)
-      inputQueue.current.length = 0
 
       if (solo) next = tickBots(next, config, 0)
       next = tick(next, config, solo ? 0 : undefined)
@@ -47,8 +43,6 @@ export function BombGameScreen({ config, state, onStateChange, onGameOver, solo 
   }, [config, solo, onStateChange, onGameOver])
 
   const enqueue = useCallback((action: InputAction) => {
-    inputQueue.current.push(action)
-    // Immediately apply to state for responsive rendering
     const s = stateRef.current
     if (s.gameOver) return
     switch (action.kind) {
@@ -91,8 +85,6 @@ export function BombGameScreen({ config, state, onStateChange, onGameOver, solo 
       }
     }
   })
-
-  const humanPlayer = state.players[0]
 
   return (
     <box flexDirection="column" flexGrow={1} backgroundColor="#0D0D1A">
