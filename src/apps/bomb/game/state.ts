@@ -165,6 +165,7 @@ export function throwDart(
 export function tick(
   state: BombGameState,
   config: BombGameConfig,
+  soloHumanIndex?: number,
 ): BombGameState {
   if (state.gameOver) return state;
 
@@ -314,12 +315,11 @@ export function tick(
     const key = `${p.x},${p.y}`;
     const owners = explosionOwners.get(key);
     if (!owners) return p;
-    // Player 0 (human) dies from any explosion
-    // Bots only die from human (player 0) explosions
-    if (p.index === 0 || owners.has(0)) {
-      return { ...p, alive: false };
+    // Solo mode: bots only die from human's explosions
+    if (soloHumanIndex !== undefined && p.index !== soloHumanIndex) {
+      if (!owners.has(soloHumanIndex)) return p;
     }
-    return p;
+    return { ...p, alive: false };
   });
 
   const alivePlayers = newPlayers.filter((p) => p.alive);

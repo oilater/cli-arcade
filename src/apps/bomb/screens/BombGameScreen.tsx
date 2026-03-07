@@ -23,7 +23,7 @@ export function BombGameScreen({ config, state, onStateChange, onGameOver, solo 
       let next = stateRef.current
       if (next.gameOver) return
       if (solo) next = tickBots(next, config, 0)
-      next = tick(next, config)
+      next = tick(next, config, solo ? 0 : undefined)
       // Solo: end immediately when human dies
       if (solo) {
         const me = next.players[0]
