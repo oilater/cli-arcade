@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useCallback } from "react"
 import { useKeyboard, useRenderer } from "@opentui/react"
 import type { BombGameConfig, BombGameState } from "../game/index.ts"
 import { getPlayerColor, movePlayer, placeBomb, throwDart, tick, tickBots } from "../game/index.ts"
@@ -13,15 +13,24 @@ interface BombGameScreenProps {
   readonly solo: boolean
 }
 
+type InputAction = { kind: "move"; player: number; dx: number; dy: number }
+  | { kind: "bomb"; player: number }
+  | { kind: "dart"; player: number }
+
 export function BombGameScreen({ config, state, onStateChange, onGameOver, solo }: BombGameScreenProps) {
   const renderer = useRenderer()
   const stateRef = useRef(state)
   stateRef.current = state
+  const inputQueue = useRef<InputAction[]>([])
 
   useEffect(() => {
     const interval = setInterval(() => {
       let next = stateRef.current
       if (next.gameOver) return
+
+      // Clear input queue (already applied immediately in enqueue)
+      inputQueue.current.length = 0
+
       if (solo) next = tickBots(next, config, 0)
       next = tick(next, config, solo ? 0 : undefined)
       // Solo: end immediately when human dies
@@ -37,41 +46,48 @@ export function BombGameScreen({ config, state, onStateChange, onGameOver, solo 
     return () => clearInterval(interval)
   }, [config, solo, onStateChange, onGameOver])
 
-  useKeyboard((key) => {
-    if (key.name === "escape") { renderer.destroy(); return }
-
+  const enqueue = useCallback((action: InputAction) => {
+    inputQueue.current.push(action)
+    // Immediately apply to state for responsive rendering
     const s = stateRef.current
     if (s.gameOver) return
+    switch (action.kind) {
+      case "move": onStateChange(movePlayer(s, action.player, action.dx, action.dy)); break
+      case "bomb": onStateChange(placeBomb(s, action.player, config)); break
+      case "dart": onStateChange(throwDart(s, action.player)); break
+    }
+  }, [config, onStateChange])
+
+  useKeyboard((key) => {
+    if (key.name === "escape") { renderer.destroy(); return }
+    if (stateRef.current.gameOver) return
 
     if (solo) {
-      // 1P: Arrows move, Space bomb, 1 dart
       switch (key.name) {
-        case "up": onStateChange(movePlayer(s, 0, 0, -1)); return
-        case "down": onStateChange(movePlayer(s, 0, 0, 1)); return
-        case "left": onStateChange(movePlayer(s, 0, -1, 0)); return
-        case "right": onStateChange(movePlayer(s, 0, 1, 0)); return
-        case "space": onStateChange(placeBomb(s, 0, config)); return
-        case "1": onStateChange(throwDart(s, 0)); return
+        case "up": enqueue({ kind: "move", player: 0, dx: 0, dy: -1 }); return
+        case "down": enqueue({ kind: "move", player: 0, dx: 0, dy: 1 }); return
+        case "left": enqueue({ kind: "move", player: 0, dx: -1, dy: 0 }); return
+        case "right": enqueue({ kind: "move", player: 0, dx: 1, dy: 0 }); return
+        case "space": enqueue({ kind: "bomb", player: 0 }); return
+        case "1": enqueue({ kind: "dart", player: 0 }); return
       }
     } else {
-      // P1: WASD move, Space bomb, 1 dart
       switch (key.name) {
-        case "w": onStateChange(movePlayer(s, 0, 0, -1)); return
-        case "s": onStateChange(movePlayer(s, 0, 0, 1)); return
-        case "a": onStateChange(movePlayer(s, 0, -1, 0)); return
-        case "d": onStateChange(movePlayer(s, 0, 1, 0)); return
-        case "space": onStateChange(placeBomb(s, 0, config)); return
-        case "1": onStateChange(throwDart(s, 0)); return
+        case "w": enqueue({ kind: "move", player: 0, dx: 0, dy: -1 }); return
+        case "s": enqueue({ kind: "move", player: 0, dx: 0, dy: 1 }); return
+        case "a": enqueue({ kind: "move", player: 0, dx: -1, dy: 0 }); return
+        case "d": enqueue({ kind: "move", player: 0, dx: 1, dy: 0 }); return
+        case "space": enqueue({ kind: "bomb", player: 0 }); return
+        case "1": enqueue({ kind: "dart", player: 0 }); return
       }
 
-      // P2: IJKL move, / bomb, . dart
       switch (key.name) {
-        case "i": onStateChange(movePlayer(s, 1, 0, -1)); return
-        case "k": onStateChange(movePlayer(s, 1, 0, 1)); return
-        case "j": onStateChange(movePlayer(s, 1, -1, 0)); return
-        case "l": onStateChange(movePlayer(s, 1, 1, 0)); return
-        case "/": onStateChange(placeBomb(s, 1, config)); return
-        case ".": onStateChange(throwDart(s, 1)); return
+        case "i": enqueue({ kind: "move", player: 1, dx: 0, dy: -1 }); return
+        case "k": enqueue({ kind: "move", player: 1, dx: 0, dy: 1 }); return
+        case "j": enqueue({ kind: "move", player: 1, dx: -1, dy: 0 }); return
+        case "l": enqueue({ kind: "move", player: 1, dx: 1, dy: 0 }); return
+        case "/": enqueue({ kind: "bomb", player: 1 }); return
+        case ".": enqueue({ kind: "dart", player: 1 }); return
       }
     }
   })

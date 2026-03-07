@@ -22,7 +22,6 @@ const FLOOR = { char: "··", fg: "#252540", bg: "#16162A" }
 const PLAYER_BG = "#16162A"
 
 // Bomb: ticking with urgency
-const BOMB_FG_SAFE = "#AAA"
 const BOMB_FG_WARN = "#FF8C00"
 const BOMB_FG_CRIT = "#FF2020"
 const BOMB_BG = "#16162A"
@@ -34,8 +33,15 @@ const FIRE: CellView[] = [
   { char: "░░", fg: "#CC3300", bg: "#661A00" },   // fading ember
 ]
 
-// Dart projectile in flight
-const DART: CellView = { char: ">>", fg: "#E879F9", bg: "#16162A" }
+// Dart projectile in flight (per direction)
+const DART_CHARS: Record<string, string> = {
+  "1,0": "→ ",
+  "-1,0": "← ",
+  "0,-1": "↑ ",
+  "0,1": "↓ ",
+}
+const DART_FG = "#E879F9"
+const DART_BG = "#16162A"
 
 // Item pickups (clear labels)
 const ITEMS: Record<string, CellView> = {
@@ -79,10 +85,12 @@ export function BombGrid({ state, myIndex }: BombGridProps) {
     return map
   }, [state.items])
 
-  const dartSet = useMemo(() => {
-    const set = new Set<string>()
-    for (const d of state.darts) set.add(`${d.x},${d.y}`)
-    return set
+  const dartMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const d of state.darts) {
+      map.set(`${d.x},${d.y}`, `${d.dx},${d.dy}`)
+    }
+    return map
   }, [state.darts])
 
   const rows = useMemo(() => {
@@ -102,8 +110,9 @@ export function BombGrid({ state, myIndex }: BombGridProps) {
           const timer = explosionSet.get(key)!
           const phase = Math.min(2, Math.floor((5 - timer) / 2))
           cells.push(FIRE[phase] ?? FIRE[0]!)
-        } else if (dartSet.has(key)) {
-          cells.push(DART)
+        } else if (dartMap.has(key)) {
+          const dir = dartMap.get(key)!
+          cells.push({ char: DART_CHARS[dir] ?? ">>", fg: DART_FG, bg: DART_BG })
         } else if (playerMap.has(key)) {
           const pIdx = playerMap.get(key)!
           const isMe = pIdx === myIndex
@@ -133,7 +142,7 @@ export function BombGrid({ state, myIndex }: BombGridProps) {
     }
 
     return result
-  }, [state.map, state.tickCount, explosionSet, dartSet, playerMap, bombMap, itemMap])
+  }, [state.map, state.tickCount, explosionSet, dartMap, playerMap, bombMap, itemMap])
 
   return (
     <box flexDirection="column" flexGrow={1} backgroundColor="#0E0E1A">
