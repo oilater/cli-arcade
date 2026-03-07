@@ -4,6 +4,7 @@ import { getPlayerColor } from "../game/index.ts"
 
 interface BombGridProps {
   readonly state: BombGameState
+  readonly myIndex?: number
 }
 
 interface CellView {
@@ -38,12 +39,12 @@ const DART: CellView = { char: ">>", fg: "#E879F9", bg: "#16162A" }
 
 // Item pickups (clear labels)
 const ITEMS: Record<string, CellView> = {
-  range: { char: "R↑", fg: "#FF6B6B", bg: "#331111" },
-  bomb:  { char: "B+", fg: "#4ECDC4", bg: "#113333" },
-  dart:  { char: "D!", fg: "#E879F9", bg: "#2A1133" },
+  range: { char: "💧", fg: "#FF6B6B", bg: "#331111" },
+  bomb:  { char: "●●", fg: "#4ECDC4", bg: "#113333" },
+  dart:  { char: "🎯", fg: "#E879F9", bg: "#2A1133" },
 }
 
-export function BombGrid({ state }: BombGridProps) {
+export function BombGrid({ state, myIndex }: BombGridProps) {
   const explosionSet = useMemo(() => {
     const set = new Map<string, number>()
     for (const e of state.explosions) set.set(`${e.x},${e.y}`, e.timer)
@@ -51,8 +52,8 @@ export function BombGrid({ state }: BombGridProps) {
   }, [state.explosions])
 
   const bombMap = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const b of state.bombs) map.set(`${b.x},${b.y}`, b.timer)
+    const map = new Map<string, { timer: number; owner: number }>()
+    for (const b of state.bombs) map.set(`${b.x},${b.y}`, { timer: b.timer, owner: b.owner })
     return map
   }, [state.bombs])
 
@@ -100,17 +101,18 @@ export function BombGrid({ state }: BombGridProps) {
           cells.push(DART)
         } else if (playerMap.has(key)) {
           const pIdx = playerMap.get(key)!
-          cells.push({ char: "██", fg: getPlayerColor(pIdx), bg: PLAYER_BG })
+          const isMe = pIdx === myIndex
+          cells.push({ char: isMe ? "🟦" : "██", fg: getPlayerColor(pIdx), bg: PLAYER_BG })
         } else if (bombMap.has(key)) {
-          const timer = bombMap.get(key)!
-          const sec = Math.ceil(timer / 10)
+          const { timer, owner } = bombMap.get(key)!
           const blink = state.tickCount % 4 < 2
+          const isMyBomb = owner === myIndex
           const fg = timer <= 10
             ? (blink ? BOMB_FG_CRIT : "#880000")
             : timer <= 20
               ? BOMB_FG_WARN
-              : BOMB_FG_SAFE
-          cells.push({ char: "●●", fg, bg: BOMB_BG })
+              : getPlayerColor(owner)
+          cells.push({ char: isMyBomb ? "🔵" : "🔴", fg, bg: BOMB_BG })
         } else if (itemMap.has(key)) {
           cells.push(itemMap.get(key)!)
         } else {

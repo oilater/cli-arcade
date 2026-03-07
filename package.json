@@ -1,10 +1,10 @@
 {
-  "name": "fn",
+  "name": "ca",
   "module": "src/index.tsx",
   "type": "module",
   "private": true,
   "bin": {
-    "fn": "src/index.tsx"
+    "ca": "src/index.tsx"
   },
   "scripts": {
     "start": "bun run src/index.tsx",

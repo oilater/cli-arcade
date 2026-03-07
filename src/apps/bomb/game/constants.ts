@@ -2,7 +2,7 @@ import type { BombGameConfig } from "./types.ts"
 
 export const DEFAULT_BOMB_CONFIG: BombGameConfig = {
   mapSize: 25,              // 25x25 square
-  bombTimer: 30,            // 3 sec at 10 ticks/sec
+  bombTimer: 25,            // 2.5 sec at 10 ticks/sec
   explosionDuration: 5,     // 0.5 sec
 }
 

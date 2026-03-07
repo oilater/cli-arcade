@@ -30,14 +30,10 @@ export function BombGameOverScreen({ state, onRestart, myIndex }: BombGameOverSc
       titleText = "WIN"
       titleColor = "#FFD700"
       subtitleText = "You survived!"
-    } else if (state.winner !== null) {
+    } else {
       titleText = "LOSE"
       titleColor = "#FF4444"
-      subtitleText = `P${state.winner + 1} wins`
-    } else {
-      titleText = "DRAW"
-      titleColor = "#888"
-      subtitleText = "Nobody survived"
+      subtitleText = state.winner !== null ? `P${state.winner + 1} wins` : "You died!"
     }
   } else {
     // 2P local — neutral view

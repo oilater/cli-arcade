@@ -170,29 +170,46 @@ export function tick(
 
   let current = { ...state, tickCount: state.tickCount + 1 };
 
-  // ── 1. Move darts & check hits ──
+  // ── 1. Move darts & check hits (2 steps per tick, checking each cell) ──
   let forcedDetonations: Bomb[] = [];
+  let activeDarts = [...current.darts];
   const survivingDarts: Dart[] = [];
 
-  for (const dart of current.darts) {
-    const nx = dart.x + dart.dx * 2; // darts move fast (2 cells/tick)
-    const ny = dart.y + dart.dy * 2;
+  for (const dart of activeDarts) {
+    let cx = dart.x;
+    let cy = dart.y;
+    let consumed = false;
+    let blocked = false;
 
-    const cell = current.map[ny]?.[nx];
-    if (cell === undefined || cell === "wall" || cell === "block") continue; // dart gone
+    for (let step = 0; step < 2; step++) {
+      const nx = cx + dart.dx;
+      const ny = cy + dart.dy;
 
-    // Hit a bomb? → force detonate
-    const hitBomb = current.bombs.find((b) => b.x === nx && b.y === ny);
-    if (hitBomb) {
-      forcedDetonations.push(hitBomb);
-      current = {
-        ...current,
-        bombs: current.bombs.filter((b) => b !== hitBomb),
-      };
-      continue; // dart consumed
+      const cell = current.map[ny]?.[nx];
+      if (cell === undefined || cell === "wall" || cell === "block") {
+        blocked = true;
+        break;
+      }
+
+      // Hit a bomb? → force detonate
+      const hitBomb = current.bombs.find((b) => b.x === nx && b.y === ny);
+      if (hitBomb) {
+        forcedDetonations.push(hitBomb);
+        current = {
+          ...current,
+          bombs: current.bombs.filter((b) => b !== hitBomb),
+        };
+        consumed = true;
+        break;
+      }
+
+      cx = nx;
+      cy = ny;
     }
 
-    survivingDarts.push({ ...dart, x: nx, y: ny });
+    if (!consumed && !blocked) {
+      survivingDarts.push({ ...dart, x: cx, y: cy });
+    }
   }
 
   current = { ...current, darts: survivingDarts };
@@ -238,6 +255,7 @@ export function tick(
       x: bomb.x,
       y: bomb.y,
       timer: config.explosionDuration,
+      owner: bomb.owner,
     });
 
     const dirs: [number, number][] = [
@@ -254,7 +272,7 @@ export function tick(
         const cell = newMap[ey]?.[ex];
         if (cell === undefined || cell === "wall") break;
 
-        newExplosions.push({ x: ex, y: ey, timer: config.explosionDuration });
+        newExplosions.push({ x: ex, y: ey, timer: config.explosionDuration, owner: bomb.owner });
 
         if (cell === "block") {
           newMap[ey]![ex] = "empty";
@@ -279,7 +297,13 @@ export function tick(
   }
 
   // ── 4. Clean up ──
-  const explosionSet = new Set(newExplosions.map((e) => `${e.x},${e.y}`));
+  // Track which positions have explosions and from which owners
+  const explosionOwners = new Map<string, Set<number>>();
+  for (const e of newExplosions) {
+    const key = `${e.x},${e.y}`;
+    if (!explosionOwners.has(key)) explosionOwners.set(key, new Set());
+    explosionOwners.get(key)!.add(e.owner);
+  }
 
   newExplosions = newExplosions
     .map((e) => ({ ...e, timer: e.timer - 1 }))
@@ -287,7 +311,14 @@ export function tick(
 
   const newPlayers = current.players.map((p) => {
     if (!p.alive) return p;
-    if (explosionSet.has(`${p.x},${p.y}`)) return { ...p, alive: false };
+    const key = `${p.x},${p.y}`;
+    const owners = explosionOwners.get(key);
+    if (!owners) return p;
+    // Player 0 (human) dies from any explosion
+    // Bots only die from human (player 0) explosions
+    if (p.index === 0 || owners.has(0)) {
+      return { ...p, alive: false };
+    }
     return p;
   });
 

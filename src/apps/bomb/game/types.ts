@@ -30,6 +30,7 @@ export interface Explosion {
   readonly x: number
   readonly y: number
   readonly timer: number
+  readonly owner: number
 }
 
 export interface Dart {

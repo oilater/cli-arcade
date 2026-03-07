@@ -28,39 +28,57 @@ export function useBombServer(address: string, playerName: string): BombServerCo
   const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
-    const ws = new WebSocket(`ws://${address}`)
-    wsRef.current = ws
+    let cancelled = false
+    let ws: WebSocket | null = null
 
-    ws.onopen = () => {
-      setStatus("connected")
-      ws.send(JSON.stringify({ type: "join", playerName }))
-    }
+    function connect() {
+      if (cancelled) return
+      ws = new WebSocket(`ws://${address}`)
+      wsRef.current = ws
 
-    ws.onmessage = (event) => {
-      const msg: BombServerMessage = JSON.parse(event.data as string)
-      switch (msg.type) {
-        case "welcome":
-          setPlayerId(msg.playerId)
-          setConfig(msg.config)
-          break
-        case "lobby":
-          setLobbyPlayers(msg.players)
-          break
-        case "game_state":
-          setGameState(msg.state)
-          setGameOver(null)
-          break
-        case "game_over":
-          setGameOver(msg.state)
-          setGameState(null)
-          break
+      ws.onopen = () => {
+        setStatus("connected")
+        ws!.send(JSON.stringify({ type: "join", playerName }))
       }
+
+      ws.onmessage = (event) => {
+        const msg: BombServerMessage = JSON.parse(event.data as string)
+        switch (msg.type) {
+          case "welcome":
+            setPlayerId(msg.playerId)
+            setConfig(msg.config)
+            break
+          case "lobby":
+            setLobbyPlayers(msg.players)
+            break
+          case "game_state":
+            setGameState(msg.state)
+            setGameOver(null)
+            break
+          case "game_over":
+            setGameOver(msg.state)
+            setGameState(null)
+            break
+        }
+      }
+
+      ws.onclose = () => {
+        if (!cancelled) {
+          setStatus("connecting")
+          setTimeout(connect, 500)
+        }
+      }
+      ws.onerror = () => {}
     }
 
-    ws.onclose = () => setStatus("disconnected")
-    ws.onerror = () => setStatus("error")
+    // Small delay to let server start (for host mode)
+    const timer = setTimeout(connect, 200)
 
-    return () => { ws.close() }
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+      ws?.close()
+    }
   }, [address, playerName])
 
   const send = useCallback((msg: BombClientMessage) => {

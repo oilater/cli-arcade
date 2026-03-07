@@ -100,7 +100,7 @@ export function BombGameScreen({ config, state, onStateChange, onGameOver, solo 
         </text>
       </box>
 
-      <BombGrid state={state} />
+      <BombGrid state={state} myIndex={solo ? 0 : undefined} />
 
       {/* Footer */}
       <box flexDirection="row" justifyContent="center" gap={3} paddingX={1} backgroundColor="#111128">

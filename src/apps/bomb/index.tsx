@@ -18,7 +18,7 @@ interface BombAppProps {
 
 function parseBombArgs(args: ReadonlyArray<string>) {
   let mode: Mode = "local"
-  let address = `localhost:${DEFAULT_BOMB_PORT}`
+  let address = `127.0.0.1:${DEFAULT_BOMB_PORT}`
   let playerName = `Player-${Math.random().toString(36).slice(2, 6)}`
 
   for (let i = 0; i < args.length; i++) {
@@ -114,7 +114,7 @@ function OnlineBombGame({ mode, address, playerName }: OnlineBombGameProps) {
     return null
   })
 
-  const actualAddress = serverInfo ? `localhost:${serverInfo.port}` : address
+  const actualAddress = serverInfo ? `127.0.0.1:${serverInfo.port}` : address
   const connection = useBombServer(actualAddress, playerName)
 
   if (connection.gameOver) {

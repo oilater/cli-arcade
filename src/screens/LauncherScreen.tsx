@@ -35,7 +35,7 @@ export function LauncherScreen({ onSelect }: LauncherScreenProps) {
 
   return (
     <box flexDirection="column" alignItems="center" justifyContent="center" flexGrow={1}>
-      <ascii-font text="fn" font="tiny" color="#3B82F6" />
+      <ascii-font text="cli arcade" font="tiny" color="#3B82F6" />
       <box height={1} />
 
       <box

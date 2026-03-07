@@ -9,12 +9,22 @@ interface BotAction {
 
 const DIRS: ReadonlyArray<[number, number]> = [[0, -1], [0, 1], [-1, 0], [1, 0]]
 
-/** Check if a position is in the blast path of any bomb */
-function isInBlastPath(state: BombGameState, x: number, y: number): boolean {
+// Bot remembers recent explosion positions to avoid walking in too soon
+const recentExplosions = new Map<string, number>() // key -> tick when safe
+const EXPLOSION_COOLDOWN = 8
+
+/** Check if a position is dangerous for a bot */
+function isDangerous(state: BombGameState, x: number, y: number): boolean {
+  // Recent explosion cooldown
+  const cooldownEnd = recentExplosions.get(`${x},${y}`)
+  if (cooldownEnd !== undefined && state.tickCount < cooldownEnd) return true
+
+  // Active explosions
   for (const e of state.explosions) {
     if (e.x === x && e.y === y) return true
   }
 
+  // All bomb blast paths
   for (const bomb of state.bombs) {
     if (bomb.x === x && bomb.y === y) return true
     for (const [dx, dy] of DIRS) {
@@ -31,21 +41,6 @@ function isInBlastPath(state: BombGameState, x: number, y: number): boolean {
   return false
 }
 
-/** Check if a position is in blast of a hypothetical bomb at (bx, by) */
-function wouldBeInBlast(state: BombGameState, bx: number, by: number, range: number, tx: number, ty: number): boolean {
-  if (bx === tx && by === ty) return true
-  for (const [dx, dy] of DIRS) {
-    for (let dist = 1; dist <= range; dist++) {
-      const ex = bx + dx * dist
-      const ey = by + dy * dist
-      const cell = state.map[ey]?.[ex]
-      if (cell === undefined || cell === "wall" || cell === "block") break
-      if (ex === tx && ey === ty) return true
-    }
-  }
-  return false
-}
-
 function canWalk(state: BombGameState, x: number, y: number): boolean {
   const cell = state.map[y]?.[x]
   if (cell === undefined || cell === "wall" || cell === "block") return false
@@ -53,54 +48,15 @@ function canWalk(state: BombGameState, x: number, y: number): boolean {
   return true
 }
 
-/** BFS to find if there's a safe cell reachable within `maxSteps` */
-function canReachSafety(
-  state: BombGameState,
-  startX: number,
-  startY: number,
-  bombX: number,
-  bombY: number,
-  bombRange: number,
-  maxSteps: number,
-): boolean {
-  const visited = new Set<string>()
-  const queue: Array<{ x: number; y: number; steps: number }> = [{ x: startX, y: startY, steps: 0 }]
-  visited.add(`${startX},${startY}`)
-
-  while (queue.length > 0) {
-    const cur = queue.shift()!
-    if (cur.steps > maxSteps) continue
-
-    // This cell is safe from the hypothetical bomb AND existing bombs
-    if (!wouldBeInBlast(state, bombX, bombY, bombRange, cur.x, cur.y) && !isInBlastPath(state, cur.x, cur.y)) {
-      return true
-    }
-
-    for (const [dx, dy] of DIRS) {
-      const nx = cur.x + dx
-      const ny = cur.y + dy
-      const key = `${nx},${ny}`
-      if (visited.has(key)) continue
-      if (!canWalk(state, nx, ny)) continue
-      // Don't walk through the bomb position
-      if (nx === bombX && ny === bombY) continue
-      visited.add(key)
-      queue.push({ x: nx, y: ny, steps: cur.steps + 1 })
-    }
-  }
-
-  return false
-}
-
-/** BFS to find the best direction to escape to safety */
-function findEscapeDir(state: BombGameState, player: Player): [number, number] | null {
+/** BFS to find escape direction to a safe cell */
+function findEscapeDir(state: BombGameState, startX: number, startY: number): [number, number] | null {
   const visited = new Set<string>()
   const queue: Array<{ x: number; y: number; firstDx: number; firstDy: number; steps: number }> = []
-  visited.add(`${player.x},${player.y}`)
+  visited.add(`${startX},${startY}`)
 
   for (const [dx, dy] of DIRS) {
-    const nx = player.x + dx
-    const ny = player.y + dy
+    const nx = startX + dx
+    const ny = startY + dy
     if (!canWalk(state, nx, ny)) continue
     const key = `${nx},${ny}`
     if (visited.has(key)) continue
@@ -110,9 +66,9 @@ function findEscapeDir(state: BombGameState, player: Player): [number, number] |
 
   while (queue.length > 0) {
     const cur = queue.shift()!
-    if (cur.steps > 6) continue
+    if (cur.steps > 15) continue
 
-    if (!isInBlastPath(state, cur.x, cur.y)) {
+    if (!isDangerous(state, cur.x, cur.y)) {
       return [cur.firstDx, cur.firstDy]
     }
 
@@ -128,6 +84,46 @@ function findEscapeDir(state: BombGameState, player: Player): [number, number] |
   }
 
   return null
+}
+
+/** Count how many distinct escape routes exist after placing a bomb */
+function countEscapeRoutes(state: BombGameState, player: Player): number {
+  let routes = 0
+  for (const [dx, dy] of DIRS) {
+    const nx = player.x + dx
+    const ny = player.y + dy
+    if (!canWalk(state, nx, ny)) continue
+
+    // BFS from this neighbor — can it reach a safe cell?
+    const visited = new Set<string>()
+    visited.add(`${player.x},${player.y}`) // can't go back through bomb
+    visited.add(`${nx},${ny}`)
+    const queue: Array<{ x: number; y: number; steps: number }> = [{ x: nx, y: ny, steps: 1 }]
+    let found = false
+
+    while (queue.length > 0 && !found) {
+      const cur = queue.shift()!
+      if (cur.steps > 10) continue
+
+      if (!isDangerous(state, cur.x, cur.y)) {
+        found = true
+        break
+      }
+
+      for (const [ddx, ddy] of DIRS) {
+        const nnx = cur.x + ddx
+        const nny = cur.y + ddy
+        const key = `${nnx},${nny}`
+        if (visited.has(key)) continue
+        if (!canWalk(state, nnx, nny)) continue
+        visited.add(key)
+        queue.push({ x: nnx, y: nny, steps: cur.steps + 1 })
+      }
+    }
+
+    if (found) routes++
+  }
+  return routes
 }
 
 function hasBlockNearby(state: BombGameState, player: Player): boolean {
@@ -157,27 +153,22 @@ function hasPlayerNearby(state: BombGameState, player: Player): boolean {
 }
 
 function decideBotAction(state: BombGameState, player: Player): BotAction {
-  const inDanger = isInBlastPath(state, player.x, player.y)
+  const inDanger = isDangerous(state, player.x, player.y)
 
-  // Priority 1: Escape danger
+  // Priority 1: Escape danger — ALWAYS
   if (inDanger) {
-    const escapeDir = findEscapeDir(state, player)
+    const escapeDir = findEscapeDir(state, player.x, player.y)
     if (escapeDir) {
       return { type: "move", dx: escapeDir[0], dy: escapeDir[1] }
     }
-    // No safe path found, try any walkable cell
-    const walkable = DIRS.filter(([dx, dy]) => canWalk(state, player.x + dx, player.y + dy))
-    if (walkable.length > 0) {
-      const [dx, dy] = walkable[Math.floor(Math.random() * walkable.length)]!
-      return { type: "move", dx, dy }
-    }
+    // No safe path — don't move randomly into more danger
     return { type: "idle" }
   }
 
-  // Priority 2: Place bomb if near target AND can escape the blast
+  // Priority 2: Place bomb ONLY if 2+ escape routes exist
   if (player.activeBombs < player.maxBombs && !state.bombs.some((b) => b.x === player.x && b.y === player.y)) {
     if (hasPlayerNearby(state, player) || hasBlockNearby(state, player)) {
-      if (canReachSafety(state, player.x, player.y, player.x, player.y, player.bombRange, 4)) {
+      if (countEscapeRoutes(state, player) >= 2) {
         return { type: "bomb" }
       }
     }
@@ -187,18 +178,18 @@ function decideBotAction(state: BombGameState, player: Player): BotAction {
   const itemDir = DIRS.find(([dx, dy]) => {
     const nx = player.x + dx
     const ny = player.y + dy
-    return canWalk(state, nx, ny) && !isInBlastPath(state, nx, ny) && state.items.some((item) => item.x === nx && item.y === ny)
+    return canWalk(state, nx, ny) && !isDangerous(state, nx, ny) && state.items.some((item) => item.x === nx && item.y === ny)
   })
   if (itemDir) {
     return { type: "move", dx: itemDir[0], dy: itemDir[1] }
   }
 
-  // Priority 4: Walk toward blocks (to destroy them)
+  // Priority 4: Walk toward blocks
   const blockDirs = DIRS.filter(([dx, dy]) => {
     const nx = player.x + dx
     const ny = player.y + dy
     if (!canWalk(state, nx, ny)) return false
-    if (isInBlastPath(state, nx, ny)) return false
+    if (isDangerous(state, nx, ny)) return false
     for (let dist = 2; dist <= 4; dist++) {
       const cell = state.map[player.y + dy * dist]?.[player.x + dx * dist]
       if (cell === "block") return true
@@ -214,7 +205,7 @@ function decideBotAction(state: BombGameState, player: Player): BotAction {
   const safeDirs = DIRS.filter(([dx, dy]) => {
     const nx = player.x + dx
     const ny = player.y + dy
-    return canWalk(state, nx, ny) && !isInBlastPath(state, nx, ny)
+    return canWalk(state, nx, ny) && !isDangerous(state, nx, ny)
   })
   if (safeDirs.length > 0 && Math.random() < 0.4) {
     const [dx, dy] = safeDirs[Math.floor(Math.random() * safeDirs.length)]!
@@ -229,16 +220,21 @@ export function tickBots(
   config: BombGameConfig,
   humanPlayerIndex: number,
 ): BombGameState {
+  // Track explosion positions for cooldown
+  for (const e of state.explosions) {
+    recentExplosions.set(`${e.x},${e.y}`, state.tickCount + EXPLOSION_COOLDOWN)
+  }
+  for (const [key, tick] of recentExplosions) {
+    if (state.tickCount >= tick) recentExplosions.delete(key)
+  }
+
   let current = state
 
   for (const player of current.players) {
     if (player.index === humanPlayerIndex) continue
     if (!player.alive) continue
 
-    // Bots act every 3 ticks, but react to danger every tick
-    const inDanger = isInBlastPath(current, player.x, player.y)
-    if (!inDanger && current.tickCount % 3 !== player.index % 3) continue
-
+    // Bots check danger and act EVERY tick
     const action = decideBotAction(current, player)
 
     switch (action.type) {
@@ -247,9 +243,16 @@ export function tickBots(
           current = movePlayer(current, player.index, action.dx, action.dy)
         }
         break
-      case "bomb":
+      case "bomb": {
         current = placeBomb(current, player.index, config)
+        // Immediately move away after placing
+        const updatedPlayer = current.players[player.index]!
+        const escapeDir = findEscapeDir(current, updatedPlayer.x, updatedPlayer.y)
+        if (escapeDir) {
+          current = movePlayer(current, player.index, escapeDir[0], escapeDir[1])
+        }
         break
+      }
     }
   }
 

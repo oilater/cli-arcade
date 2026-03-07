@@ -48,7 +48,7 @@ export function OnlineBombGameScreen({ config, state, connection }: OnlineBombGa
         ))}
       </box>
 
-      <BombGrid state={state} />
+      <BombGrid state={state} myIndex={connection.playerId ?? undefined} />
 
       <text>
         <span fg="#666">

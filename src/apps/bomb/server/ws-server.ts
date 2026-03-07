@@ -38,6 +38,7 @@ export function startBombServer(initialConfig: BombGameConfig, port: number = DE
 
   // @ts-expect-error Bun.serve generic arity varies across @types/bun versions
   const server = Bun.serve<{ playerId: number }>({
+    hostname: "0.0.0.0",
     port,
     fetch(req: Request, server: { upgrade: (req: Request, opts: { data: { playerId: number } }) => boolean }) {
       const upgraded = server.upgrade(req, { data: { playerId: room.players.length } })

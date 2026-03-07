@@ -49,7 +49,7 @@ export function BombSetupScreen({ onStart }: BombSetupScreenProps) {
 
   return (
     <box flexDirection="column" alignItems="center" justifyContent="center" flexGrow={1} backgroundColor="#0D0D1A">
-      <ascii-font text="BOMB" font="tiny" color="#FF6B00" />
+      <ascii-font text="cli arcade" font="tiny" color="#3B82F6" />
       <box height={1} />
 
       <box
