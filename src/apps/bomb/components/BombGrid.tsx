@@ -44,6 +44,11 @@ const ITEMS: Record<string, CellView> = {
   dart:  { char: "🎯", fg: "#E879F9", bg: "#2A1133" },
 }
 
+function getColor(pIdx: number, myIndex?: number): string {
+  if (myIndex === undefined) return getPlayerColor(pIdx)
+  return pIdx === myIndex ? "#3B82F6" : "#EF4444"
+}
+
 export function BombGrid({ state, myIndex }: BombGridProps) {
   const explosionSet = useMemo(() => {
     const set = new Map<string, number>()
@@ -102,7 +107,7 @@ export function BombGrid({ state, myIndex }: BombGridProps) {
         } else if (playerMap.has(key)) {
           const pIdx = playerMap.get(key)!
           const isMe = pIdx === myIndex
-          cells.push({ char: isMe ? "🟦" : "██", fg: getPlayerColor(pIdx), bg: PLAYER_BG })
+          cells.push({ char: isMe ? "🟦" : "██", fg: getColor(pIdx, myIndex), bg: PLAYER_BG })
         } else if (bombMap.has(key)) {
           const { timer, owner } = bombMap.get(key)!
           const blink = state.tickCount % 4 < 2
@@ -111,7 +116,7 @@ export function BombGrid({ state, myIndex }: BombGridProps) {
             ? (blink ? BOMB_FG_CRIT : "#880000")
             : timer <= 20
               ? BOMB_FG_WARN
-              : getPlayerColor(owner)
+              : getColor(owner, myIndex)
           cells.push({ char: isMyBomb ? "🔵" : "🔴", fg, bg: BOMB_BG })
         } else if (itemMap.has(key)) {
           cells.push(itemMap.get(key)!)

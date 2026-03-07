@@ -40,9 +40,8 @@ export function OnlineBombGameScreen({ config, state, connection }: OnlineBombGa
     <box flexDirection="column" flexGrow={1}>
       <box flexDirection="row" justifyContent="space-between" paddingX={1}>
         {state.players.map((p) => (
-          <text key={p.index} fg={p.alive ? getPlayerColor(p.index) : "#444"}>
-            {p.alive ? "█" : "X"} P{p.index + 1}
-            {p.index === connection.playerId ? "(you)" : ""}
+          <text key={p.index} fg={p.alive ? (p.index === connection.playerId ? "#3B82F6" : "#EF4444") : "#444"}>
+            {p.alive ? "█" : "X"} {p.index === connection.playerId ? "나" : "상대"}
             {" "}[{p.bombRange}R {p.maxBombs}B{p.darts > 0 ? ` ${p.darts}D` : ""}]
           </text>
         ))}
