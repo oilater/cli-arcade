@@ -17,7 +17,6 @@ export function parseArgs(argv: ReadonlyArray<string>): ParsedArgs {
     return { command: null, subArgs: [], help: true }
   }
 
-  // First non-flag arg is the command
   if (first && !first.startsWith("-")) {
     return { command: first, subArgs: args.slice(1), help: false }
   }

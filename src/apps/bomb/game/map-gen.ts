@@ -39,7 +39,6 @@ export function generateMap(
     }
   }
 
-  // Sparse blocks - open map with scattered cover
   for (let y = 1; y < size - 1; y++) {
     for (let x = 1; x < size - 1; x++) {
       if (map[y]![x] !== "empty") continue;

@@ -25,7 +25,6 @@ export function BombGameOverScreen({ state, onRestart, myIndex }: BombGameOverSc
   let subtitleText: string
 
   if (myIndex !== undefined) {
-    // Solo or online — show from my perspective
     if (iWon) {
       titleText = "WIN"
       titleColor = "#FFD700"
@@ -36,7 +35,6 @@ export function BombGameOverScreen({ state, onRestart, myIndex }: BombGameOverSc
       subtitleText = state.winner !== null ? `P${state.winner + 1} wins` : "You died!"
     }
   } else {
-    // 2P local — neutral view
     if (state.winner !== null) {
       titleText = `P${state.winner + 1}`
       titleColor = getPlayerColor(state.winner)

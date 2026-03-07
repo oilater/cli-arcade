@@ -96,7 +96,6 @@ function handleMessage(
       room.started = true
       broadcast(room, { type: "game_state", state: room.state })
 
-      // Start tick loop
       room.tickInterval = setInterval(() => {
         if (!room.state || room.state.gameOver) {
           if (room.tickInterval) clearInterval(room.tickInterval)

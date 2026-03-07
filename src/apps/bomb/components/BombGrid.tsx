@@ -13,27 +13,22 @@ interface CellView {
   readonly bg: string
 }
 
-// ── Theme ──────────────────────────────────────
 const WALL = { char: "██", fg: "#374151", bg: "#1F2937" }
 const BLOCK = { char: "▒▒", fg: "#92702A", bg: "#5C4516" }
 const FLOOR = { char: "··", fg: "#252540", bg: "#16162A" }
 
-// Player: solid bright block
 const PLAYER_BG = "#16162A"
 
-// Bomb: ticking with urgency
 const BOMB_FG_WARN = "#FF8C00"
 const BOMB_FG_CRIT = "#FF2020"
 const BOMB_BG = "#16162A"
 
-// Explosion: 3-phase fire animation
 const FIRE: CellView[] = [
-  { char: "██", fg: "#FFDD33", bg: "#FF4500" },   // bright flash
-  { char: "▓▓", fg: "#FF6600", bg: "#CC3300" },   // hot core
-  { char: "░░", fg: "#CC3300", bg: "#661A00" },   // fading ember
+  { char: "██", fg: "#FFDD33", bg: "#FF4500" },
+  { char: "▓▓", fg: "#FF6600", bg: "#CC3300" },
+  { char: "░░", fg: "#CC3300", bg: "#661A00" },
 ]
 
-// Dart projectile in flight (per direction)
 const DART_CHARS: Record<string, string> = {
   "1,0": "→ ",
   "-1,0": "← ",
@@ -43,7 +38,6 @@ const DART_CHARS: Record<string, string> = {
 const DART_FG = "#E879F9"
 const DART_BG = "#16162A"
 
-// Item pickups (clear labels)
 const ITEMS: Record<string, CellView> = {
   range: { char: "💧", fg: "#FF6B6B", bg: "#331111" },
   bomb:  { char: "●●", fg: "#4ECDC4", bg: "#113333" },
@@ -70,7 +64,6 @@ export function BombGrid({ state, myIndex }: BombGridProps) {
 
   const playerMap = useMemo(() => {
     const map = new Map<string, { index: number; alive: boolean }>()
-    // Dead first, then alive — alive overwrites dead at same position
     const sorted = [...state.players].sort((a, b) => Number(a.alive) - Number(b.alive))
     for (const p of sorted) {
       map.set(`${p.x},${p.y}`, { index: p.index, alive: p.alive })
@@ -107,7 +100,6 @@ export function BombGrid({ state, myIndex }: BombGridProps) {
         const key = `${x},${y}`
         const cell = row[x]
 
-        // Priority: explosion > dart > player > bomb > item > terrain
         if (explosionSet.has(key)) {
           const timer = explosionSet.get(key)!
           const phase = Math.min(2, Math.floor((5 - timer) / 2))

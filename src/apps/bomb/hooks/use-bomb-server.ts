@@ -83,7 +83,6 @@ export function useBombServer(
       ws.onerror = () => {};
     }
 
-    // Small delay to let server start (for host mode)
     const timer = setTimeout(connect, 200);
 
     return () => {

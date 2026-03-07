@@ -1,6 +1,5 @@
 import type { BombGameConfig, BombGameState } from "../game/index.ts"
 
-// Client → Server
 export type BombClientMessage =
   | { type: "join"; playerName: string }
   | { type: "move"; dx: number; dy: number }
@@ -9,7 +8,6 @@ export type BombClientMessage =
   | { type: "start_game" }
   | { type: "update_config"; config: BombGameConfig }
 
-// Server → Client
 export type BombServerMessage =
   | { type: "welcome"; playerId: number; config: BombGameConfig }
   | { type: "lobby"; players: ReadonlyArray<{ name: string }> }

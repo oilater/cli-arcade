@@ -48,8 +48,6 @@ export function BombApp({ args }: BombAppProps) {
   )
 }
 
-// --- Local Game ---
-
 function LocalBombGame() {
   type Screen = "setup" | "game" | "gameover"
 
@@ -97,8 +95,6 @@ function LocalBombGame() {
   }
 }
 
-// --- Online Game ---
-
 interface OnlineBombGameProps {
   mode: Mode
   address: string
@@ -121,7 +117,7 @@ function OnlineBombGame({ mode, address, playerName }: OnlineBombGameProps) {
     return (
       <BombGameOverScreen
         state={connection.gameOver}
-        onRestart={() => {}}
+        onRestart={() => connection.send({ type: "start_game" })}
         myIndex={connection.playerId ?? undefined}
       />
     )

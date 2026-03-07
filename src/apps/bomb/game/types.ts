@@ -13,8 +13,8 @@ export interface Player {
   readonly bombRange: number
   readonly maxBombs: number
   readonly activeBombs: number
-  readonly darts: number       // dart ammo
-  readonly lastDx: number      // last move direction (for dart aim)
+  readonly darts: number
+  readonly lastDx: number
   readonly lastDy: number
 }
 

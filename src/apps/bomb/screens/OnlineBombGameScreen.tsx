@@ -17,7 +17,6 @@ export function OnlineBombGameScreen({ config, state, connection }: OnlineBombGa
     if (key.name === "escape") { renderer.destroy(); return }
     if (state.gameOver) return
 
-    // 1P keybindings: Arrows move, Space bomb, E dart
     switch (key.name) {
       case "up":
         connection.send({ type: "move", dx: 0, dy: -1 }); return

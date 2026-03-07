@@ -34,7 +34,7 @@ export function BombLobbyScreen({ connection, isHost }: BombLobbyScreenProps) {
             <box flexDirection="column" alignItems="center">
               <text><span fg="#888">친구에게 이 명령어를 공유하세요:</span></text>
               <box height={1} />
-              <text><span fg="#FFF"><strong>ca bomb --join {localIP}:{DEFAULT_BOMB_PORT}</strong></span></text>
+              <text><span fg="#FFF"><strong>ca start --join {localIP}:{DEFAULT_BOMB_PORT}</strong></span></text>
             </box>
           </box>
           <box height={1} />

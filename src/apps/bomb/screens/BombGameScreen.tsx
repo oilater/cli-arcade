@@ -1,7 +1,7 @@
-import { useEffect, useRef, useCallback } from "react"
+import { useEffect, useRef, useCallback, useMemo } from "react"
 import { useKeyboard, useRenderer } from "@opentui/react"
 import type { BombGameConfig, BombGameState } from "../game/index.ts"
-import { getPlayerColor, movePlayer, placeBomb, throwDart, tick, tickBots } from "../game/index.ts"
+import { getPlayerColor, movePlayer, placeBomb, throwDart, tick, createBotBrain } from "../game/index.ts"
 import { TICK_RATE } from "../game/constants.ts"
 import { BombGrid } from "../components/BombGrid.tsx"
 
@@ -21,6 +21,7 @@ export function BombGameScreen({ config, state, onStateChange, onGameOver, solo 
   const renderer = useRenderer()
   const stateRef = useRef(state)
   stateRef.current = state
+  const tickBots = useMemo(() => createBotBrain(), [])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -29,7 +30,6 @@ export function BombGameScreen({ config, state, onStateChange, onGameOver, solo 
 
       if (solo) next = tickBots(next, config, 0)
       next = tick(next, config, solo ? 0 : undefined)
-      // Solo: end immediately when human dies
       if (solo) {
         const me = next.players[0]
         if (me && !me.alive) {

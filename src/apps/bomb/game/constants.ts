@@ -1,18 +1,18 @@
 import type { BombGameConfig } from "./types.ts"
 
 export const DEFAULT_BOMB_CONFIG: BombGameConfig = {
-  mapSize: 25,              // 25x25 square
-  bombTimer: 25,            // 2.5 sec at 10 ticks/sec
-  explosionDuration: 5,     // 0.5 sec
+  mapSize: 25,
+  bombTimer: 25,
+  explosionDuration: 5,
 }
 
 export const TICK_RATE = 100
 
 export const PLAYER_COLORS = [
-  "#3B82F6", // blue
-  "#EF4444", // red
-  "#10B981", // green
-  "#F59E0B", // amber
+  "#3B82F6",
+  "#EF4444",
+  "#10B981",
+  "#F59E0B",
 ] as const
 
 export const ITEM_DROP_CHANCE = 0.4
