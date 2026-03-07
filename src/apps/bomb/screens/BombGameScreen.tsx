@@ -87,7 +87,7 @@ export function BombGameScreen({ config, state, onStateChange, onGameOver, solo 
   })
 
   return (
-    <box flexDirection="column" flexGrow={1} backgroundColor="#0D0D1A">
+    <box flexDirection="column" flexGrow={1} alignItems="center" paddingTop={2} backgroundColor="#0D0D1A">
       {/* Header */}
       <box flexDirection="row" justifyContent="space-between" paddingX={1} backgroundColor="#111128">
         {state.players.map((p) => (
