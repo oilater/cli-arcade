@@ -6,7 +6,7 @@ Enjoy Crazy Arcade in your terminal!
 
 ## Demo Video
 
-https://github.com/user-attachments/assets/b13afc38-b521-4cc9-8215-5a98c6fdb98a
+https://github.com/user-attachments/assets/4595fdf6-6c22-4a0a-b428-640756b25606
 
 ## Installation
 
