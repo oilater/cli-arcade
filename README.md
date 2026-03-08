@@ -1,18 +1,27 @@
 # CLI Arcade
 
-OpenTUI + Bun으로 만든 터미널 아케이드 게임.
+터미널에서 크레이지 아케이드를 즐겨보세요!
 
-## 설치
+## Demo Video
 
-### Homebrew (macOS Apple Silicon)
+https://github.com/user-attachments/assets/b13afc38-b521-4cc9-8215-5a98c6fdb98a
+
+## Installation
+
+### Homebrew (macOS Apple Silicon / Linux)
 
 ```bash
-brew tap oilater/tap
-brew install cli-arcade
-ca
+# 설치하기
+brew tap oilater/tap && brew install cli-arcade
+
+# 실행하기
+ca start
+
+# 가이드
+ca guide 또는 ca --help
 ```
 
-### 소스에서 직접
+### 로컬 실행
 
 ```bash
 git clone https://github.com/oilater/cli-arcade.git
@@ -24,31 +33,26 @@ ca
 
 PATH 안 잡히면: `echo 'export PATH="$HOME/.bun/bin:$PATH"' >> ~/.zshrc`
 
-자세한 가이드는 `ca guide`
+### 조작법
 
-## 게임
+**1P:**
+- 방향키: 이동
+- Space: 폭탄 설치
+- 1: 다트 발사
+- 2: 바늘 사용 (갇혔을 때 부활)
+- Esc: 종료
 
-폭탄 깔고, 블록 부수고, 아이템 먹고, 마지막까지 살아남으면 승리.
+**2P:**
+- P1: WASD / Space:폭탄 / 1:다트 / 2:바늘
+- P2: 방향키 / /:폭탄 / .:다트 / ,:바늘
 
-폭발에 맞으면 바로 죽는 게 아니라 3초간 갇힘. 그 사이에 바늘(💉) 쓰면 탈출. 못 쓰면 사망. 갇힌 놈 밟으면 즉사.
 
 ## 아이템
 
 - 💧 범위 — 폭발 범위 +1 (최대 8)
 - 💣 폭탄 — 동시 설치 수 +1 (최대 5)
 - 🎯 다트 — 던지면 폭탄 원격 폭파
-- 💉 바늘 — 갇혔을 때 부활 (10% 드롭, 귀함)
-
-## 조작
-
-솔로: 방향키 이동, Space 폭탄, 1 다트, 2 바늘, Esc 종료
-
-2인:
-
-| | 이동 | 폭탄 | 다트 | 바늘 |
-|---|---|---|---|---|
-| P1 | WASD | Space | 1 | 2 |
-| P2 | 방향키 | / | . | , |
+- 💉 바늘 — 갇혔을 때 부활 (10% 드롭)
 
 ## 모드
 
@@ -60,7 +64,6 @@ ca start --join AB12        # 방 코드로 참가
 ca start --host             # 로컬 네트워크 호스팅
 ca start --join 192.168.x:7778  # 로컬 참가
 ```
-
 `--name "닉네임"` 으로 이름 설정 가능
 
 ---
@@ -111,32 +114,9 @@ src/apps/bomb/
 
 ### 핵심 구현
 
-#### 1. 상태 관리 — 완전 불변(Immutable)
+#### 1. 게임 루프
 
-모든 게임 상태 변경은 새 객체를 반환하는 순수 함수로 구현. 직접 수정(mutation) 없음.
-
-```typescript
-// 모든 상태 전이 함수 패턴
-function tick(state: BombGameState, config, ...) → 새로운 BombGameState
-function movePlayer(state, playerIndex, dx, dy) → 새로운 BombGameState
-function placeBomb(state, playerIndex, config)  → 새로운 BombGameState
-function throwDart(state, playerIndex)          → 새로운 BombGameState
-```
-
-게임 상태 구조:
-
-| 필드 | 설명 |
-|------|------|
-| `map[][]` | 2D 타일맵 (`"wall"` / `"block"` / `"empty"`) |
-| `players[]` | 위치, 생존여부, 갇힘타이머, 스탯(범위/폭탄수/다트/바늘) |
-| `bombs[]` | 위치, 타이머, 소유자, 범위 |
-| `explosions[]` | 위치, 잔여시간, 소유자 |
-| `darts[]` | 위치, 방향(dx,dy), 소유자 |
-| `items[]` | 위치, 타입(`range`/`bomb`/`dart`/`needle`) |
-
-#### 2. 게임 루프
-
-100ms 간격(10 tick/sec)으로 recursive `setTimeout` 실행. 틱 겹침 방지.
+터미널 환경이라 rAF는 적용이 안돼서, setInternal 대신 setTimeout 적용으로 틱 중첩을 방지했어요.
 
 ```
 매 틱:
@@ -145,11 +125,9 @@ function throwDart(state, playerIndex)          → 새로운 BombGameState
   3. 솔로: 인간 사망 시 즉시 게임오버
 ```
 
-입력은 `enqueue()`를 통해 즉시 상태에 반영 → 렌더링 지연 없이 반응.
+#### 2. tick() — 메인 게임 로직
 
-#### 3. tick() — 메인 게임 로직
-
-한 틱에서 순서대로 처리:
+한 틱에서 순서대로 처리해요.
 
 **1단계: 다트 이동**
 - 틱당 2칸 이동 (1칸 x 2스텝, 중간 셀마다 충돌 체크)
@@ -270,26 +248,6 @@ WebSocket 연결 → join 메시지 전송
 | 폭발 지속시간 | 5틱 (0.5초) |
 | 틱 레이트 | 100ms (10 tick/sec) |
 | 아이템 드롭 확률 | 40% |
-
-### 조작법
-
-**솔로모드:**
-- 방향키: 이동
-- Space: 폭탄 설치
-- 1: 다트 발사
-- 2: 바늘 사용 (갇혔을 때 부활)
-- Esc: 종료
-
-**로컬 2P:**
-- P1: WASD / Space:폭탄 / 1:다트 / 2:바늘
-- P2: 방향키 / /:폭탄 / .:다트 / ,:바늘
-
-**온라인:**
-- 방향키: 이동
-- Space: 폭탄 설치
-- 1: 다트 발사
-
----
 
 ### 해결한 주요 문제들
 
