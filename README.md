@@ -1,14 +1,16 @@
-# CLI Arcade
+<img width="598" height="126" alt="스크린샷 2026-03-09 오전 12 41 09" src="https://github.com/user-attachments/assets/af1ac1c0-f7fc-4377-ac82-78061e8d5320" />
 
-Enjoy Crazy Arcade right in your terminal!
+> This logo is powered by [pxpx](https://github.com/tolluset/pxpx) 🎨 
 
-Current version only supports Solo play and Local Network hosting.
+Enjoy Crazy Arcade in your terminal!
 
 ## Demo Video
 
 https://github.com/user-attachments/assets/b13afc38-b521-4cc9-8215-5a98c6fdb98a
 
 ## Installation
+
+Current version only supports Solo play (with maximum 3 Bots) and Local Network hosting.
 
 ### Homebrew (macOS Apple Silicon / Linux)
 
