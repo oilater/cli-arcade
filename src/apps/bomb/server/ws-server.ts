@@ -15,7 +15,7 @@ interface Room {
   config: BombGameConfig
   state: BombGameState | null
   started: boolean
-  tickInterval: ReturnType<typeof setInterval> | null
+  tickTimer: ReturnType<typeof setTimeout> | null
 }
 
 function send(ws: ServerWebSocket<{ playerId: number }>, msg: BombServerMessage) {
@@ -33,7 +33,7 @@ export function startBombServer(initialConfig: BombGameConfig, port: number = DE
     config: initialConfig,
     state: null,
     started: false,
-    tickInterval: null,
+    tickTimer: null,
   }
 
   // @ts-expect-error Bun.serve generic arity varies across @types/bun versions
@@ -52,9 +52,9 @@ export function startBombServer(initialConfig: BombGameConfig, port: number = DE
       },
       close(ws: ServerWebSocket<{ playerId: number }>) {
         room.players = room.players.filter((p) => p.ws !== ws)
-        if (room.players.length === 0 && room.tickInterval) {
-          clearInterval(room.tickInterval)
-          room.tickInterval = null
+        if (room.players.length === 0 && room.tickTimer) {
+          clearTimeout(room.tickTimer)
+          room.tickTimer = null
           room.started = false
           room.state = null
         } else {
@@ -96,21 +96,19 @@ function handleMessage(
       room.started = true
       broadcast(room, { type: "game_state", state: room.state })
 
-      room.tickInterval = setInterval(() => {
-        if (!room.state || room.state.gameOver) {
-          if (room.tickInterval) clearInterval(room.tickInterval)
-          return
-        }
+      function loop() {
+        if (!room.state || room.state.gameOver) return
         room.state = tick(room.state, room.config)
         if (room.state.gameOver) {
           broadcast(room, { type: "game_over", state: room.state })
-          if (room.tickInterval) clearInterval(room.tickInterval)
-          room.tickInterval = null
+          room.tickTimer = null
           room.started = false
         } else {
           broadcast(room, { type: "game_state", state: room.state })
+          room.tickTimer = setTimeout(loop, TICK_RATE)
         }
-      }, TICK_RATE)
+      }
+      room.tickTimer = setTimeout(loop, TICK_RATE)
       break
     }
 

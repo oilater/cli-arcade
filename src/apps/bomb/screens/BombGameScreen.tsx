@@ -24,7 +24,8 @@ export function BombGameScreen({ config, state, onStateChange, onGameOver, solo 
   const tickBots = useMemo(() => createBotBrain(), [])
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    let timer: ReturnType<typeof setTimeout>
+    function loop() {
       let next = stateRef.current
       if (next.gameOver) return
 
@@ -37,9 +38,11 @@ export function BombGameScreen({ config, state, onStateChange, onGameOver, solo 
         }
       }
       onStateChange(next)
-      if (next.gameOver) onGameOver(next)
-    }, TICK_RATE)
-    return () => clearInterval(interval)
+      if (next.gameOver) { onGameOver(next); return }
+      timer = setTimeout(loop, TICK_RATE)
+    }
+    timer = setTimeout(loop, TICK_RATE)
+    return () => clearTimeout(timer)
   }, [config, solo, onStateChange, onGameOver])
 
   const enqueue = useCallback((action: InputAction) => {
