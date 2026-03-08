@@ -15,8 +15,9 @@ jobs:
         include:
           - os: macos-latest
             target: darwin-arm64
-          - os: macos-13
+          - os: macos-latest
             target: darwin-x64
+            cross: --target=bun-darwin-x64
           - os: ubuntu-latest
             target: linux-x64
 
@@ -31,7 +32,7 @@ jobs:
 
       - run: bun install
 
-      - run: bun build src/index.tsx --compile --outfile ca-${{ matrix.target }}
+      - run: bun build src/index.tsx --compile ${{ matrix.cross || '' }} --outfile ca-${{ matrix.target }}
 
       - uses: actions/upload-artifact@v4
         with:

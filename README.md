@@ -4,7 +4,19 @@ OpenTUI + Bun으로 만든 터미널 아케이드 게임.
 
 ## 설치
 
+### Homebrew (macOS Apple Silicon)
+
 ```bash
+brew tap oilater/tap
+brew install cli-arcade
+ca
+```
+
+### 소스에서 직접
+
+```bash
+git clone https://github.com/oilater/cli-arcade.git
+cd cli-arcade
 bun install
 bun link
 ca
