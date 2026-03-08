@@ -12,10 +12,12 @@ export function createInitialState(
     x: spawn.x,
     y: spawn.y,
     alive: true,
+    trappedTimer: 0,
     bombRange: 2,
     maxBombs: 1,
     activeBombs: 0,
     darts: 0,
+    needles: 0,
     lastDx: 1,
     lastDy: 0,
   }));

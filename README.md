@@ -1,18 +1,59 @@
 # CLI Arcade
 
-터미널에서 플레이하는 아케이드 게임 플랫폼. OpenTUI(React 기반 TUI 프레임워크) + Bun 런타임으로 구현.
+OpenTUI + Bun으로 만든 터미널 아케이드 게임.
 
-## 실행 방법
+## 설치
 
 ```bash
 bun install
-bun link        # 'ca' 명령어 전역 등록
-ca bomb         # 봄버맨 게임 실행
+bun link
+ca
 ```
 
-> `~/.bun/bin`이 PATH에 없으면: `echo 'export PATH="$HOME/.bun/bin:$PATH"' >> ~/.zshrc`
+PATH 안 잡히면: `echo 'export PATH="$HOME/.bun/bin:$PATH"' >> ~/.zshrc`
 
-## 기술 스택
+자세한 가이드는 `ca guide`
+
+## 게임
+
+폭탄 깔고, 블록 부수고, 아이템 먹고, 마지막까지 살아남으면 승리.
+
+폭발에 맞으면 바로 죽는 게 아니라 3초간 갇힘. 그 사이에 바늘(💉) 쓰면 탈출. 못 쓰면 사망. 갇힌 놈 밟으면 즉사.
+
+## 아이템
+
+- 💧 범위 — 폭발 범위 +1 (최대 8)
+- 💣 폭탄 — 동시 설치 수 +1 (최대 5)
+- 🎯 다트 — 던지면 폭탄 원격 폭파
+- 💉 바늘 — 갇혔을 때 부활 (10% 드롭, 귀함)
+
+## 조작
+
+솔로: 방향키 이동, Space 폭탄, 1 다트, 2 바늘, Esc 종료
+
+2인:
+
+| | 이동 | 폭탄 | 다트 | 바늘 |
+|---|---|---|---|---|
+| P1 | WASD | Space | 1 | 2 |
+| P2 | 방향키 | / | . | , |
+
+## 모드
+
+```bash
+ca                          # 모드 선택
+ca start --solo             # 봇 대전
+ca start --online           # 온라인 자동매칭
+ca start --join AB12        # 방 코드로 참가
+ca start --host             # 로컬 네트워크 호스팅
+ca start --join 192.168.x:7778  # 로컬 참가
+```
+
+`--name "닉네임"` 으로 이름 설정 가능
+
+---
+
+## Tech Stack
 
 - **OpenTUI** — React reconciler 기반 터미널 UI (`<box>`, `<text>`, `<span>`, `useKeyboard`)
 - **Bun** — 런타임, WebSocket 서버 (`Bun.serve`), CLI 등록 (`bun link`)
@@ -20,7 +61,7 @@ ca bomb         # 봄버맨 게임 실행
 
 ---
 
-## Bomb Game
+## Bomb Game — Implementation Details
 
 봄버맨 스타일 대전 게임. 솔로(vs 봇) / 로컬 2P / 온라인 멀티 지원.
 
@@ -32,8 +73,12 @@ src/apps/bomb/
 │   ├── types.ts          # 핵심 타입 정의
 │   ├── constants.ts      # 게임 설정값
 │   ├── map-gen.ts        # 맵 생성 알고리즘
-│   ├── state.ts          # 게임 로직 (순수 함수)
-│   └── bot.ts            # 봇 AI
+│   ├── state.ts          # 초기 상태 생성
+│   ├── actions.ts        # 플레이어 입력 (이동/폭탄/다트/바늘)
+│   ├── tick.ts           # 매 틱 게임 로직 (폭발/사망/갇힘)
+│   ├── utils.ts          # 공유 유틸리티
+│   ├── index.ts          # Barrel export
+│   └── bot.ts            # 봇 AI (BFS 기반)
 ├── components/
 │   └── BombGrid.tsx      # 그리드 렌더러
 ├── screens/
@@ -71,15 +116,15 @@ function throwDart(state, playerIndex)          → 새로운 BombGameState
 | 필드 | 설명 |
 |------|------|
 | `map[][]` | 2D 타일맵 (`"wall"` / `"block"` / `"empty"`) |
-| `players[]` | 위치, 생존여부, 스탯(범위/폭탄수/다트) |
+| `players[]` | 위치, 생존여부, 갇힘타이머, 스탯(범위/폭탄수/다트/바늘) |
 | `bombs[]` | 위치, 타이머, 소유자, 범위 |
 | `explosions[]` | 위치, 잔여시간, 소유자 |
 | `darts[]` | 위치, 방향(dx,dy), 소유자 |
-| `items[]` | 위치, 타입(`range`/`bomb`/`dart`) |
+| `items[]` | 위치, 타입(`range`/`bomb`/`dart`/`needle`) |
 
 #### 2. 게임 루프
 
-100ms 간격(10 tick/sec)으로 `setInterval` 실행.
+100ms 간격(10 tick/sec)으로 recursive `setTimeout` 실행. 틱 겹침 방지.
 
 ```
 매 틱:
@@ -113,23 +158,27 @@ while (폭발 큐에 폭탄 있음):
     빈칸 → explosion 생성
 ```
 
-**4단계: 사망 판정**
-- explosion 위치에 있는 플레이어 사망
-- 솔로모드: 봇은 인간(player 0)의 폭발에만 사망 (`owner` 필드로 구분)
-- 온라인모드: 모든 폭발이 모든 플레이어에게 적용
+**4단계: 갇힘 판정**
+- explosion 위치에 있는 플레이어 → 즉사 대신 **갇힘 상태** (3초 카운트다운)
+- 갇힌 동안 이동/폭탄/다트 사용 불가, 💀 깜빡임 표시
+- 바늘(💉) 사용 시 즉시 탈출, 타이머 소진 시 사망
+- 다른 플레이어가 갇힌 플레이어 위로 걸어가면 즉사
+- 솔로모드: 봇은 인간(player 0)의 폭발에만 갇힘 (`owner` 필드로 구분)
 
 **5단계: 승리 판정**
-- 생존자 1명 이하 → `gameOver: true`
+- 생존자 1명 이하 + 바늘 보유 사망자 없음 + 갇힌 플레이어 없음 → `gameOver: true`
 
 #### 4. 이동 & 아이템
 
 ```
 다음 칸 계산 → 벽/블록/폭탄이면 이동 불가
 이동 성공 시 아이템 픽업:
-  range → bombRange +1 (최대 8)
-  bomb  → maxBombs +1 (최대 5)
-  dart  → darts +1
+  💧 range  → bombRange +1 (최대 8)
+  💣 bomb   → maxBombs +1 (최대 5)
+  🎯 dart   → darts +1
+  💉 needle → needles +1 (10% 확률 드롭)
 이동 방향은 항상 기록 (lastDx, lastDy) → 다트 발사 방향에 사용
+갇힌 플레이어 위로 이동 시 → 갇힌 플레이어 즉사
 ```
 
 #### 5. 봇 AI — 룰 기반 + BFS
@@ -166,8 +215,10 @@ while (폭발 큐에 폭탄 있음):
 | 상대 폭탄 | 빨간 원 |
 | 폭발 | 3단계 불꽃 애니메이션 (노랑→주황→빨강) |
 | 다트 | 방향 화살표 (← → ↑ ↓) |
-| 아이템 | 범위(물방울), 폭탄(동그라미), 다트(과녁) |
-| 죽은 플레이어 | 회색 X 표시 (시체) |
+| 아이템 | 💧범위, 💣폭탄, 🎯다트, 💉바늘 |
+| 갇힌 플레이어 | 💀 깜빡임 (3초 카운트다운) |
+| 죽은 플레이어 | 회색 ✗✗ 표시 |
+| 봇 (솔로) | 🤖 |
 
 ---
 
@@ -194,7 +245,7 @@ WebSocket 연결 → join 메시지 전송
 
 #### 로컬 네트워크 플레이
 
-호스트가 LAN IP + 포트를 표시 → 같은 네트워크의 다른 컴퓨터에서 `ca bomb --join <IP>:<PORT>`로 접속.
+호스트가 LAN IP + 포트를 표시 → 같은 네트워크의 다른 컴퓨터에서 `ca start --join <IP>:<PORT>`로 접속.
 
 ---
 
@@ -214,11 +265,12 @@ WebSocket 연결 → join 메시지 전송
 - 방향키: 이동
 - Space: 폭탄 설치
 - 1: 다트 발사
+- 2: 바늘 사용 (갇혔을 때 부활)
 - Esc: 종료
 
 **로컬 2P:**
-- P1: WASD / Space / 1
-- P2: IJKL / (슬래시) / .(마침표)
+- P1: WASD / Space:폭탄 / 1:다트 / 2:바늘
+- P2: 방향키 / /:폭탄 / .:다트 / ,:바늘
 
 **온라인:**
 - 방향키: 이동

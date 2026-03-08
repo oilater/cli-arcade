@@ -15,7 +15,7 @@ export function movePlayer(
   dy: number,
 ): BombGameState {
   const player = state.players[playerIndex];
-  if (!player || !player.alive) return state;
+  if (!player || !player.alive || player.trappedTimer > 0) return state;
 
   let updatedPlayer: Player = { ...player, lastDx: dx, lastDy: dy };
   const nx = updatedPlayer.x + dx;
@@ -40,13 +40,18 @@ export function movePlayer(
     items = state.items.filter((item) => item !== pickedItem);
   }
 
-  return {
-    ...state,
-    items,
-    players: state.players.map((p) =>
-      p.index === playerIndex ? updatedPlayer : p,
-    ),
-  };
+  let players = state.players.map((p) =>
+    p.index === playerIndex ? updatedPlayer : p,
+  );
+
+  const trappedVictim = state.players.find(
+    (p) => p.index !== playerIndex && p.alive && p.trappedTimer > 0 && p.x === nx && p.y === ny,
+  );
+  if (trappedVictim) {
+    players = updatePlayer(players, trappedVictim.index, { alive: false, trappedTimer: 0 });
+  }
+
+  return { ...state, items, players };
 }
 
 function applyItem(player: Player, itemType: ItemType): Player {
@@ -57,6 +62,8 @@ function applyItem(player: Player, itemType: ItemType): Player {
       return { ...player, maxBombs: Math.min(5, player.maxBombs + 1) };
     case "dart":
       return { ...player, darts: player.darts + 1 };
+    case "needle":
+      return { ...player, needles: player.needles + 1 };
   }
 }
 
@@ -66,7 +73,7 @@ export function placeBomb(
   config: BombGameConfig,
 ): BombGameState {
   const player = state.players[playerIndex];
-  if (!player || !player.alive) return state;
+  if (!player || !player.alive || player.trappedTimer > 0) return state;
   if (player.activeBombs >= player.maxBombs) return state;
   if (state.bombs.some((b) => b.x === player.x && b.y === player.y))
     return state;
@@ -88,6 +95,24 @@ export function placeBomb(
   };
 }
 
+export function useNeedle(
+  state: BombGameState,
+  playerIndex: number,
+): BombGameState {
+  const player = state.players[playerIndex];
+  if (!player || player.needles <= 0) return state;
+  if (player.alive && player.trappedTimer <= 0) return state;
+
+  return {
+    ...state,
+    players: updatePlayer(state.players, playerIndex, {
+      alive: true,
+      trappedTimer: 0,
+      needles: player.needles - 1,
+    }),
+  };
+}
+
 export function throwDart(
   state: BombGameState,
   playerIndex: number,
@@ -95,7 +120,7 @@ export function throwDart(
   dy?: number,
 ): BombGameState {
   const player = state.players[playerIndex];
-  if (!player || !player.alive || player.darts <= 0) return state;
+  if (!player || !player.alive || player.trappedTimer > 0 || player.darts <= 0) return state;
 
   const dart: Dart = {
     x: player.x,

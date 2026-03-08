@@ -1,9 +1,6 @@
-import { useState } from "react"
 import { useKeyboard, useRenderer } from "@opentui/react"
 import type { BombServerConnection } from "../hooks/use-bomb-server.ts"
 import { getPlayerColor } from "../game/index.ts"
-import { DEFAULT_BOMB_PORT } from "../server/protocol.ts"
-import { getLocalIP } from "../../../utils/network.ts"
 
 interface BombLobbyScreenProps {
   readonly connection: BombServerConnection
@@ -12,7 +9,6 @@ interface BombLobbyScreenProps {
 
 export function BombLobbyScreen({ connection, isHost }: BombLobbyScreenProps) {
   const renderer = useRenderer()
-  const [localIP] = useState(() => isHost ? getLocalIP() : "")
 
   useKeyboard((key) => {
     if (key.name === "escape") { renderer.destroy(); return }
@@ -26,15 +22,15 @@ export function BombLobbyScreen({ connection, isHost }: BombLobbyScreenProps) {
       <ascii-font text="cli arcade" font="tiny" color="#3B82F6" />
       <box height={1} />
 
-      {isHost ? (
+      {connection.roomCode ? (
         <box flexDirection="column" alignItems="center">
-          <text><span fg="#10B981">서버 실행 중</span></text>
-          <box height={1} />
           <box border borderStyle="rounded" borderColor="#10B981" paddingX={2} padding={1}>
             <box flexDirection="column" alignItems="center">
-              <text><span fg="#888">친구에게 이 명령어를 공유하세요:</span></text>
+              <text><span fg="#888">Room Code:</span></text>
               <box height={1} />
-              <text><span fg="#FFF"><strong>ca start --join {localIP}:{DEFAULT_BOMB_PORT}</strong></span></text>
+              <text><span fg="#FFD700"><strong>{connection.roomCode}</strong></span></text>
+              <box height={1} />
+              <text><span fg="#888">Share: </span><span fg="#FFF"><strong>ca start --join {connection.roomCode}</strong></span></text>
             </box>
           </box>
           <box height={1} />

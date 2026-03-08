@@ -10,10 +10,12 @@ export interface Player {
   readonly x: number
   readonly y: number
   readonly alive: boolean
+  readonly trappedTimer: number
   readonly bombRange: number
   readonly maxBombs: number
   readonly activeBombs: number
   readonly darts: number
+  readonly needles: number
   readonly lastDx: number
   readonly lastDy: number
 }
@@ -41,7 +43,7 @@ export interface Dart {
   readonly owner: number
 }
 
-export type ItemType = "range" | "bomb" | "dart"
+export type ItemType = "range" | "bomb" | "dart" | "needle"
 
 export interface Item {
   readonly x: number

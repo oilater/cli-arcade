@@ -7,20 +7,61 @@ import { App } from "./App.tsx"
 
 const parsed = parseArgs(process.argv)
 
-if (parsed.help) {
+if (parsed.command === "guide") {
   console.log(`
-ca - CLI Arcade
+  ╔══════════════════════════════════════════════════════╗
+  ║              CLI Arcade - Game Guide                 ║
+  ╚══════════════════════════════════════════════════════╝
 
-Usage:
-  ca start                       Launch game (interactive menu)
-  ca start [options]             Launch with options
+  Place bombs, destroy blocks, collect items,
+  and be the last one standing.
 
-Options:
-  ca start --host                Host online game
-  ca start --join <ip:port>      Join online game
-  ca start --solo                Solo mode (vs bots)
+  Hit by an explosion? You get trapped for 3 seconds.
+  Use a needle to escape, or die. Step on a trapped
+  player to finish them off.
+
+  ── Items ───────────────────────────────────────────
+
+  💧 Range     Bomb explosion range +1 (max 8)
+  💣 Bomb      Max simultaneous bombs +1 (max 5)
+  🎯 Dart      Throwable — detonates bombs on hit
+  💉 Needle    Escape when trapped (10% drop, rare)
+
+  ── Controls ────────────────────────────────────────
+
+  Solo:
+    Arrow Keys    Move
+    Space         Place bomb
+    1             Throw dart (facing direction)
+    2             Use needle (when trapped)
+    Esc           Quit
+
+  Local 2P:
+    P1            W/A/S/D    Space:bomb  1:dart  2:needle
+    P2            Arrows     /:bomb      .:dart  ,:needle
+
+  ── Game Modes ──────────────────────────────────────
+
+  ca                             Mode select
+  ca start --solo                Solo (vs bots)
+  ca start --online              Online matchmaking
+  ca start --join <ROOM_CODE>    Join by room code
+  ca start --host                Host on local network
+  ca start --join <ip:port>      Join local game
+
+  ── Options ─────────────────────────────────────────
+
   --name "Alice"                 Set player name
-  -h, --help                     Show this help
+  --server <host>                Custom server address
+
+  ── Tips ────────────────────────────────────────────
+
+  - Bombs chain-react. Set up combos.
+  - Darts detonate bombs from a distance.
+  - Walk into a trapped player to kill them instantly.
+  - Dead players stay on the map as obstacles.
+  - Needles only drop 10% of the time.
+
 `)
   process.exit(0)
 }
@@ -32,7 +73,7 @@ const app = command === "start" || !command
 
 if (parsed.command && !app) {
   console.error(`Unknown command: ${parsed.command}`)
-  console.error(`Run 'ca --help' for available commands`)
+  console.error(`Run 'ca guide' for help`)
   process.exit(1)
 }
 

@@ -30,6 +30,8 @@ export function OnlineBombGameScreen({ config, state, connection }: OnlineBombGa
         connection.send({ type: "bomb" }); return
       case "1":
         connection.send({ type: "dart" }); return
+      case "2":
+        connection.send({ type: "needle" }); return
     }
   })
 
@@ -41,7 +43,7 @@ export function OnlineBombGameScreen({ config, state, connection }: OnlineBombGa
         {state.players.map((p) => (
           <text key={p.index} fg={p.alive ? (p.index === connection.playerId ? "#3B82F6" : "#EF4444") : "#444"}>
             {p.alive ? "█" : "X"} {p.index === connection.playerId ? "나" : "상대"}
-            {" "}[{p.bombRange}R {p.maxBombs}B{p.darts > 0 ? ` ${p.darts}D` : ""}]
+            {" "}💧{p.bombRange} 💣{p.maxBombs} 🎯{p.darts} 💉{p.needles}
           </text>
         ))}
       </box>

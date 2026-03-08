@@ -9,7 +9,7 @@ import type {
   ItemType,
   Player,
 } from "./types.ts";
-import { ITEM_DROP_CHANCE } from "./constants.ts";
+import { ITEM_DROP_CHANCE, TRAPPED_DURATION } from "./constants.ts";
 import { updatePlayer } from "./utils.ts";
 
 interface DartResult {
@@ -141,8 +141,8 @@ function processExplosions(
         if (cell === "block") {
           newMap[ey]![ex] = "empty";
           if (Math.random() < ITEM_DROP_CHANCE) {
-            const types: ItemType[] = ["range", "bomb", "dart"];
-            const type = types[Math.floor(Math.random() * types.length)]!;
+            const roll = Math.random();
+            const type: ItemType = roll < 0.1 ? "needle" : roll < 0.4 ? "range" : roll < 0.7 ? "bomb" : "dart";
             newItems.push({ x: ex, y: ey, type });
           }
           break;
@@ -160,11 +160,11 @@ function processExplosions(
   return { explosions: newExplosions, map: newMap, items: newItems, bombs, players };
 }
 
-function checkDeaths(
+function trapPlayers(
   players: ReadonlyArray<Player>,
   explosions: Explosion[],
   soloHumanIndex?: number,
-): { players: Player[]; gameOver: boolean; winner: number | null } {
+): Player[] {
   const explosionOwners = new Map<string, Set<number>>();
   for (const e of explosions) {
     const key = `${e.x},${e.y}`;
@@ -172,19 +172,32 @@ function checkDeaths(
     explosionOwners.get(key)!.add(e.owner);
   }
 
-  const newPlayers = players.map((p) => {
-    if (!p.alive) return p;
+  return players.map((p) => {
+    if (!p.alive || p.trappedTimer > 0) return p;
     const key = `${p.x},${p.y}`;
     const owners = explosionOwners.get(key);
     if (!owners) return p;
     if (soloHumanIndex !== undefined && p.index !== soloHumanIndex) {
       if (!owners.has(soloHumanIndex)) return p;
     }
-    return { ...p, alive: false };
+    return { ...p, trappedTimer: TRAPPED_DURATION };
+  });
+}
+
+function tickTrapped(
+  players: ReadonlyArray<Player>,
+): { players: Player[]; gameOver: boolean; winner: number | null } {
+  const newPlayers = players.map((p) => {
+    if (!p.alive || p.trappedTimer <= 0) return p;
+    const next = p.trappedTimer - 1;
+    if (next <= 0) return { ...p, alive: false, trappedTimer: 0 };
+    return { ...p, trappedTimer: next };
   });
 
   const alivePlayers = newPlayers.filter((p) => p.alive);
-  const gameOver = alivePlayers.length <= 1;
+  const canRevive = newPlayers.some((p) => !p.alive && p.needles > 0);
+  const trapped = newPlayers.some((p) => p.alive && p.trappedTimer > 0);
+  const gameOver = !canRevive && !trapped && alivePlayers.length <= 1;
   const winner = gameOver && alivePlayers.length === 1 ? alivePlayers[0]!.index : null;
 
   return { players: newPlayers, gameOver, winner };
@@ -213,7 +226,8 @@ export function tick(
     bombResult.exploding,
     bombResult.remaining,
   );
-  const deathResult = checkDeaths(explosionResult.players, explosionResult.explosions, soloHumanIndex);
+  const trappedPlayers = trapPlayers(explosionResult.players, explosionResult.explosions, soloHumanIndex);
+  const deathResult = tickTrapped(trappedPlayers);
   const finalExplosions = fadeExplosions(explosionResult.explosions);
 
   return {

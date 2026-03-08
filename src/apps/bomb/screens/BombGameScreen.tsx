@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useMemo } from "react"
 import { useKeyboard, useRenderer } from "@opentui/react"
 import type { BombGameConfig, BombGameState } from "../game/index.ts"
-import { getPlayerColor, movePlayer, placeBomb, throwDart, tick, createBotBrain } from "../game/index.ts"
+import { getPlayerColor, movePlayer, placeBomb, throwDart, useNeedle, tick, createBotBrain } from "../game/index.ts"
 import { TICK_RATE } from "../game/constants.ts"
 import { BombGrid } from "../components/BombGrid.tsx"
 
@@ -16,6 +16,7 @@ interface BombGameScreenProps {
 type InputAction = { kind: "move"; player: number; dx: number; dy: number }
   | { kind: "bomb"; player: number }
   | { kind: "dart"; player: number }
+  | { kind: "needle"; player: number }
 
 export function BombGameScreen({ config, state, onStateChange, onGameOver, solo }: BombGameScreenProps) {
   const renderer = useRenderer()
@@ -33,7 +34,7 @@ export function BombGameScreen({ config, state, onStateChange, onGameOver, solo 
       next = tick(next, config, solo ? 0 : undefined)
       if (solo) {
         const me = next.players[0]
-        if (me && !me.alive) {
+        if (me && !me.alive && me.needles <= 0 && me.trappedTimer <= 0) {
           next = { ...next, gameOver: true, winner: null }
         }
       }
@@ -52,6 +53,7 @@ export function BombGameScreen({ config, state, onStateChange, onGameOver, solo 
       case "move": onStateChange(movePlayer(s, action.player, action.dx, action.dy)); break
       case "bomb": onStateChange(placeBomb(s, action.player, config)); break
       case "dart": onStateChange(throwDart(s, action.player)); break
+      case "needle": onStateChange(useNeedle(s, action.player)); break
     }
   }, [config, onStateChange])
 
@@ -67,6 +69,7 @@ export function BombGameScreen({ config, state, onStateChange, onGameOver, solo 
         case "right": enqueue({ kind: "move", player: 0, dx: 1, dy: 0 }); return
         case "space": enqueue({ kind: "bomb", player: 0 }); return
         case "1": enqueue({ kind: "dart", player: 0 }); return
+        case "2": enqueue({ kind: "needle", player: 0 }); return
       }
     } else {
       switch (key.name) {
@@ -76,15 +79,17 @@ export function BombGameScreen({ config, state, onStateChange, onGameOver, solo 
         case "d": enqueue({ kind: "move", player: 0, dx: 1, dy: 0 }); return
         case "space": enqueue({ kind: "bomb", player: 0 }); return
         case "1": enqueue({ kind: "dart", player: 0 }); return
+        case "2": enqueue({ kind: "needle", player: 0 }); return
       }
 
       switch (key.name) {
-        case "i": enqueue({ kind: "move", player: 1, dx: 0, dy: -1 }); return
-        case "k": enqueue({ kind: "move", player: 1, dx: 0, dy: 1 }); return
-        case "j": enqueue({ kind: "move", player: 1, dx: -1, dy: 0 }); return
-        case "l": enqueue({ kind: "move", player: 1, dx: 1, dy: 0 }); return
+        case "up": enqueue({ kind: "move", player: 1, dx: 0, dy: -1 }); return
+        case "down": enqueue({ kind: "move", player: 1, dx: 0, dy: 1 }); return
+        case "left": enqueue({ kind: "move", player: 1, dx: -1, dy: 0 }); return
+        case "right": enqueue({ kind: "move", player: 1, dx: 1, dy: 0 }); return
         case "/": enqueue({ kind: "bomb", player: 1 }); return
         case ".": enqueue({ kind: "dart", player: 1 }); return
+        case ",": enqueue({ kind: "needle", player: 1 }); return
       }
     }
   })
@@ -96,14 +101,19 @@ export function BombGameScreen({ config, state, onStateChange, onGameOver, solo 
         {state.players.map((p) => (
           <box key={p.index} flexDirection="row" gap={1}>
             <text fg={p.alive ? getPlayerColor(p.index) : "#444"}>
-              <strong>{p.alive ? "◆" : "✗"} {solo && p.index > 0 ? "BOT" : `P${p.index + 1}`}</strong>
+              <strong>{p.alive ? "◆" : "✗"} {solo && p.index > 0 ? "🤖" : `P${p.index + 1}`}</strong>
             </text>
-            <text>
-              <span fg="#FF6B6B">R{p.bombRange}</span>
-              <span fg="#555"> </span>
-              <span fg="#4ECDC4">B{p.maxBombs}</span>
-              {p.darts > 0 ? <><span fg="#555"> </span><span fg="#E879F9">D{p.darts}</span></> : null}
-            </text>
+            {(!solo || p.index === 0) && (
+              <text>
+                <span fg="#FF6B6B">💧{p.bombRange}</span>
+                <span fg="#555"> </span>
+                <span fg="#4ECDC4">💣{p.maxBombs}</span>
+                <span fg="#555"> </span>
+                <span fg="#E879F9">🎯{p.darts}</span>
+                <span fg="#555"> </span>
+                <span fg="#FF69B4">💉{p.needles}</span>
+              </text>
+            )}
           </box>
         ))}
         <text fg="#555">
@@ -111,23 +121,23 @@ export function BombGameScreen({ config, state, onStateChange, onGameOver, solo 
         </text>
       </box>
 
-      <BombGrid state={state} myIndex={solo ? 0 : undefined} />
+      <BombGrid state={state} myIndex={solo ? 0 : undefined} solo={solo} />
 
       {/* Footer */}
       <box flexDirection="row" justifyContent="center" gap={3} paddingX={1} backgroundColor="#111128">
         {solo ? (
           <text>
-            <span fg="#555">Arrows:move  Space:bomb  1:dart  Esc:quit</span>
+            <span fg="#555">Arrows:move  Space:bomb  1:dart  2:needle  Esc:quit</span>
           </text>
         ) : (
           <>
             <text>
               <span fg="#3B82F6"><strong>P1</strong></span>
-              <span fg="#555"> WASD Space:bomb 1:dart</span>
+              <span fg="#555"> WASD Space:bomb 1:dart 2:needle</span>
             </text>
             <text>
               <span fg="#EF4444"><strong>P2</strong></span>
-              <span fg="#555"> IJKL /:bomb .:dart</span>
+              <span fg="#555"> Arrows /:bomb .:dart ,:needle</span>
             </text>
             <text>
               <span fg="#333">Esc quit</span>

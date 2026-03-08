@@ -2,15 +2,16 @@ import { useState, useCallback } from "react"
 import type { BombGameConfig, BombGameState } from "./game/index.ts"
 import { DEFAULT_BOMB_CONFIG, createInitialState } from "./game/index.ts"
 import { useBombServer } from "./hooks/use-bomb-server.ts"
+import type { JoinMode } from "./hooks/use-bomb-server.ts"
 import { startBombServer } from "./server/ws-server.ts"
-import { DEFAULT_BOMB_PORT } from "./server/protocol.ts"
+import { DEFAULT_BOMB_PORT, DEFAULT_REMOTE_HOST } from "./server/protocol.ts"
 import { BombSetupScreen } from "./screens/BombSetupScreen.tsx"
 import { BombGameScreen } from "./screens/BombGameScreen.tsx"
 import { BombGameOverScreen } from "./screens/BombGameOverScreen.tsx"
 import { BombLobbyScreen } from "./screens/BombLobbyScreen.tsx"
 import { OnlineBombGameScreen } from "./screens/OnlineBombGameScreen.tsx"
 
-type Mode = "local" | "host" | "join"
+type Mode = "local" | "host" | "online" | "join" | "join-local"
 
 interface BombAppProps {
   readonly args: ReadonlyArray<string>
@@ -18,18 +19,30 @@ interface BombAppProps {
 
 function parseBombArgs(args: ReadonlyArray<string>) {
   let mode: Mode = "local"
-  let address = `127.0.0.1:${DEFAULT_BOMB_PORT}`
+  let roomCode: string | undefined
+  let address = DEFAULT_REMOTE_HOST
   let playerName = `Player-${Math.random().toString(36).slice(2, 6)}`
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]
     const next = args[i + 1]
-    if (arg === "--host") mode = "host"
-    else if (arg === "--join" && next) { mode = "join"; address = next; i++ }
+    if (arg === "--online") mode = "online"
+    else if (arg === "--host") mode = "host"
+    else if (arg === "--join" && next) {
+      if (next.includes(":") || next.includes(".")) {
+        mode = "join-local"
+        address = next
+      } else {
+        mode = "join"
+        roomCode = next.toUpperCase()
+      }
+      i++
+    }
     else if ((arg === "-n" || arg === "--name") && next) { playerName = next; i++ }
+    else if (arg === "--server" && next) { address = next; i++ }
   }
 
-  return { mode, address, playerName }
+  return { mode, address, roomCode, playerName }
 }
 
 export function BombApp({ args }: BombAppProps) {
@@ -39,11 +52,26 @@ export function BombApp({ args }: BombAppProps) {
     return <LocalBombGame />
   }
 
+  if (parsed.mode === "host") {
+    return <LocalHostGame playerName={parsed.playerName} />
+  }
+
+  if (parsed.mode === "join-local") {
+    return (
+      <RemoteBombGame
+        address={parsed.address}
+        playerName={parsed.playerName}
+        joinMode="join-local"
+      />
+    )
+  }
+
   return (
-    <OnlineBombGame
-      mode={parsed.mode}
+    <RemoteBombGame
       address={parsed.address}
       playerName={parsed.playerName}
+      joinMode={parsed.mode === "join" ? "join" : "matchmake"}
+      roomCode={parsed.roomCode}
     />
   )
 }
@@ -95,23 +123,13 @@ function LocalBombGame() {
   }
 }
 
-interface OnlineBombGameProps {
-  mode: Mode
-  address: string
+interface LocalHostGameProps {
   playerName: string
 }
 
-function OnlineBombGame({ mode, address, playerName }: OnlineBombGameProps) {
-  const [serverInfo] = useState(() => {
-    if (mode === "host") {
-      const port = parseInt(address.split(":")[1] ?? String(DEFAULT_BOMB_PORT), 10)
-      return startBombServer(DEFAULT_BOMB_CONFIG, port)
-    }
-    return null
-  })
-
-  const actualAddress = serverInfo ? `127.0.0.1:${serverInfo.port}` : address
-  const connection = useBombServer(actualAddress, playerName)
+function LocalHostGame({ playerName }: LocalHostGameProps) {
+  const [serverInfo] = useState(() => startBombServer(DEFAULT_BOMB_CONFIG, DEFAULT_BOMB_PORT))
+  const connection = useBombServer(`127.0.0.1:${serverInfo.port}`, playerName, "create")
 
   if (connection.gameOver) {
     return (
@@ -133,5 +151,39 @@ function OnlineBombGame({ mode, address, playerName }: OnlineBombGameProps) {
     )
   }
 
-  return <BombLobbyScreen connection={connection} isHost={mode === "host"} />
+  return <BombLobbyScreen connection={connection} isHost={true} />
+}
+
+interface RemoteBombGameProps {
+  address: string
+  playerName: string
+  joinMode: JoinMode
+  roomCode?: string
+}
+
+function RemoteBombGame({ address, playerName, joinMode, roomCode }: RemoteBombGameProps) {
+  const connection = useBombServer(address, playerName, joinMode, roomCode)
+  const isHost = joinMode === "matchmake" || joinMode === "create"
+
+  if (connection.gameOver) {
+    return (
+      <BombGameOverScreen
+        state={connection.gameOver}
+        onRestart={() => connection.send({ type: "start_game" })}
+        myIndex={connection.playerId ?? undefined}
+      />
+    )
+  }
+
+  if (connection.gameState && connection.config) {
+    return (
+      <OnlineBombGameScreen
+        config={connection.config}
+        state={connection.gameState}
+        connection={connection}
+      />
+    )
+  }
+
+  return <BombLobbyScreen connection={connection} isHost={isHost || connection.playerId === 0} />
 }

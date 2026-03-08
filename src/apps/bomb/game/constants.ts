@@ -16,6 +16,7 @@ export const PLAYER_COLORS = [
 ] as const
 
 export const ITEM_DROP_CHANCE = 0.4
+export const TRAPPED_DURATION = 30
 
 export function getPlayerColor(index: number): string {
   return PLAYER_COLORS[index % PLAYER_COLORS.length] ?? PLAYER_COLORS[0]
